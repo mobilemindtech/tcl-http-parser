@@ -1,0 +1,75 @@
+#!/usr/bin/env tclsh
+
+return
+
+lappend auto_path [file join [pwd] .. build]
+
+package require http_parser
+package require tools
+
+namespace import ::http_parser::*
+namespace import ::tools::assert::*
+namespace import ::tools::lists::*
+
+
+proc handle {chan addr port} {
+
+    set result [parse -channel $chan]
+
+
+    #puts "------------------------"
+    #puts "result $result"
+    #puts "------------------------"
+
+    puts "::> method = [dict get $result method]"
+    puts "::> path = [dict get $result path]"
+    puts "::> path_raw = [dict get $result path_raw]"
+    puts "::> frag = [dict get $result frag]"
+    puts "::> body = [dict get $result body]"
+    puts "::> headers = [dict size [dict get $result headers]]"
+    puts "::> queries = [dict size [dict get $result queries]]"
+    #puts "::> .."
+
+
+    dict for {k v} [dict get $result headers] {
+        puts "header $k=$v"
+    }
+    puts "queries = [dict get $result queries]"
+    dict for {k v} [dict get $result queries] {
+        puts "query $k=$v"
+    }
+
+
+    puts $chan "HTTP/1.1 200 OK\nConnection: close\nContent-Type: text/plain\n"
+    if {[dict get $result path] == "/echo"} {
+        puts $chan [dict get $result body]
+    } else {
+        #while {[gets $chan] ne ""} {}
+        puts $chan "Hello World!"
+        puts $chan "::> method = [dict get $result method]"
+        puts $chan "::> path = [dict get $result path]"
+        puts $chan "::> path_raw = [dict get $result path_raw]"
+        puts $chan "::> frag = [dict get $result frag]"
+        puts $chan "::> body = [dict get $result body]"
+        puts $chan "::> headers = [dict size [dict get $result headers]]"
+        puts $chan "::> queries = [dict size [dict get $result queries]]"
+        puts $chan "queries = [dict get $result queries]"
+        dict for {k v} [dict get $result queries] {
+            puts $chan "query $k=$v"
+        }
+        dict for {k v} [dict get $result headers] {
+           # puts $chan "header $k=$v"
+        }
+    }
+    close $chan
+
+}
+
+proc accept {socket addr port} {
+  chan configure $socket -blocking 0 -buffering line
+  chan event $socket readable [list handle $socket $addr $port]
+}
+
+
+socket -server accept 5151
+vwait forever

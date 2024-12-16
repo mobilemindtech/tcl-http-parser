@@ -7,6 +7,7 @@ project(HttpParser
 
 include(CTest)
 
+
 add_library(HttpParser SHARED
     src/picohttpparser.h
     src/picohttpparser.c
@@ -19,13 +20,13 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
     add_subdirectory(HttpParserTests)
 endif ()
 
-
 enable_testing()
 
-add_compile_options(-Wall -fsanitize=address,undefined)
 set_target_properties(HttpParser PROPERTIES
     OUTPUT_NAME "http_parser")
 
+add_compile_options(-Wall -fsanitize=address,undefined)
+target_compile_options(HttpParser PRIVATE -Wno-incompatible-pointer-types)
 
  # CMake knows how to find TCL
 find_package(TCL)
@@ -57,11 +58,11 @@ add_custom_target(copy_pkg_index SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/http_parser
         ${CMAKE_CURRENT_BINARY_DIR}/http_parser)
 
-
 # Copy test folder to binary directory
-add_custom_target(copy_tests SOURCES
+add_custom_target(copy_tcl_tests SOURCES
     "tests/all.tcl"
     "tests/parser.test"
+    "tests/server.test"
     COMMAND
     ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
@@ -75,8 +76,7 @@ add_custom_target(copy_examples SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/examples
         ${CMAKE_CURRENT_BINARY_DIR}/examples)
 
-
-add_dependencies(HttpParser copy_pkg_index copy_tests copy_examples)
+add_dependencies(HttpParser copy_pkg_index copy_tcl_tests copy_examples)
 
 # copy dll into http_parser package directory
 add_custom_command(TARGET HttpParser POST_BUILD
@@ -85,9 +85,8 @@ add_custom_command(TARGET HttpParser POST_BUILD
         $<TARGET_FILE:HttpParser>
         ${CMAKE_CURRENT_BINARY_DIR}/http_parser)
 
-
-
-
-
-
+#add_custom_target(
+#  TclTest ALL
+#  COMMAND ls -la && cd tests && tclsh all.tcl
+#  COMMENT "run TCL tests")
 

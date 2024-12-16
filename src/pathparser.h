@@ -11,7 +11,7 @@ struct phr_queries {
 size_t
 parse_path(
     char *fullpath,
-    size_t *fullpath_len,
+    size_t fullpath_len,
     char **path,
     size_t *path_len,
     char **frag,

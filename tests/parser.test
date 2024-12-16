@@ -1,11 +1,110 @@
+#!/user/bin/env tclsh
+
+lappend auto_path [file join [pwd] ..]
 
 package require tcltest
+package require tools
+package require http_parser
 
 namespace import ::tcltest::*
+namespace import ::http_parser::*
+namespace import ::tools::assert::*
+namespace import ::tools::lists::*
 
-test util_get_def_test_ok {} -body {
-
-    set d [dict create x 1]
-    ::trails::misc::util::get_def $d x -1
-
+proc raw_request {req {has_body false}} {
+    set items [split $req \n]
+    set items [lists map $items {it {string trim $it}}]
+    set items [lrange $items 1 end-1]
+    set raw [join $items \n]
+    if {$has_body} {
+	return $raw
+    }
+    # if has no body, add empty line after headers, orelse not
+    return $raw\n
 }
+
+set request_get {
+GET /index.html?user=ricardo&auth=true HTTP/1.1
+Host: www.example.re
+User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.0; en-US; rv:1.1)
+Accept: application/json
+Accept-Language: en-US, en; q=0.5
+Accept-Encoding: gzip, deflate
+Content-Type: application/json
+}
+
+set request_post {
+POST /app/user HTTP/1.1
+Host: example.org
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 13
+
+say=Hi&to=Mom
+}
+
+set request_post_multipart {
+POST /app/user HTTP/1.1
+Host: example.org
+Content-Type: multipart/form-data;boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="field1"
+
+value1
+--boundary
+Content-Disposition: form-data; name="field2"; filename="example.txt"
+
+value2
+
+--boundary--    
+}
+
+set request_post_json {
+POST /app/user HTTP/1.1
+Host: example.org
+Content-Type: application/json
+Content-Length: 33
+
+{"name": "ricardo", "auth": true}
+}
+
+test test_url_parse_get {} -body {
+    set d [parse -string [raw_request $::request_get]]
+    assert-eq GET [dict get $d method]
+    assert-eq /index.html [dict get $d path]
+    assert-eq www.example.re [dict get $d headers Host]
+    assert-eq application/json [dict get $d headers Accept]
+    assert-eq application/json [dict get $d headers Content-Type]
+    assert-eq ricardo [dict get $d queries user]
+    assert-eq true [dict get $d queries auth]
+    return true
+} -result true
+
+test test_url_parse_post {} -body {
+    set d [parse -string [raw_request $::request_post true]]
+    assert-eq POST [dict get $d method]
+    assert-eq /app/user [dict get $d path]
+    assert-eq application/x-www-form-urlencoded [dict get $d headers Content-Type]
+    assert-eq 13 [dict get $d headers Content-Length]
+    assert-eq say=Hi&to=Mom [dict get $d body]
+    return true
+} -result true
+
+test test_url_parse_post_json {} -body {
+    set d [parse -string [raw_request $::request_post_json true]]; 
+    assert-eq POST [dict get $d method]
+    assert-eq /app/user [dict get $d path]
+    assert-eq application/json [dict get $d headers Content-Type]
+    assert-eq {{"name": "ricardo", "auth": true}} [dict get $d body]
+    return true
+} -result true
+
+test test_url_parse_time {} -body {
+
+    puts [time {	
+	parse -string [raw_request $::request_post_json true]
+    } 10000]
+
+    return true
+    
+} -result true
