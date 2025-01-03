@@ -1,0 +1,74 @@
+#!/usr/bin/env tclsh
+
+lappend auto_path [file join [pwd] ..]
+
+package require tcltest
+package require uuid
+package require http_parser
+
+namespace import ::tcltest::*
+namespace import ::http_parser::*
+
+set lock 1
+set count 0
+set max 1000
+set result {}
+
+proc client_post {} {
+    set post {POST /test HTTP/1.1
+Host: example.com
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 27
+
+field1=value1&field2=value2}
+    
+    set client [socket localhost 5151]
+    puts $client $post
+    close $client    
+}
+
+proc http_accept {socket addr port} {
+    puts accept
+    set uuid [uuid::uuid generate]
+    coroutine [namespace current]::$uuid {*}[list http_handle $socket $addr $port]
+    chan configure $socket -blocking 0 -buffering line
+    cham event $socket readable [namespace current]::uuid
+    puts acceptOk
+}
+
+proc http_handle {socket addr port} {
+    puts handle
+    puts [time {
+	try {
+	    parse -channel $socket
+	} on error err {
+	    puts $err
+	}
+    }]
+    close $socket
+
+    incr ::count
+    if {$::count >= $::max} {
+	unset ::lock
+    }
+}
+
+test test-parse-request {} -body {
+    puts "start server"
+    set socket [socket -server http_accept 5151]
+
+    puts "call clients"
+    for {set i 0} {$i < $::max} {incr i} {
+	set v [expr {int(rand()*100)}]
+	after $v client_post
+    }
+    puts "wait done"
+
+    vwait ::lock
+
+    close $socket
+    
+    return true
+} -result true
+
+cleanupTests

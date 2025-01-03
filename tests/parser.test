@@ -108,3 +108,5 @@ test test_url_parse_time {} -body {
     return true
     
 } -result true
+
+cleanupTests
